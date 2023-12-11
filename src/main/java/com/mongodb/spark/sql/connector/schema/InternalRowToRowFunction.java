@@ -23,7 +23,8 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.analysis.SimpleAnalyzer$;
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
-import org.apache.spark.sql.catalyst.encoders.RowEncoder$;
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder$;
+import org.apache.spark.sql.catalyst.encoders.RowEncoder;
 import org.apache.spark.sql.catalyst.expressions.Attribute;
 import org.apache.spark.sql.types.StructType;
 import scala.collection.immutable.Seq;
@@ -41,9 +42,11 @@ final class InternalRowToRowFunction implements Function<InternalRow, Row>, Seri
 
   @SuppressWarnings("unchecked")
   InternalRowToRowFunction(final StructType schema) {
-    ExpressionEncoder<Row> rowEncoder = RowEncoder$.MODULE$.apply(schema);
-    Seq<Attribute> attributeSeq =
-        (Seq<Attribute>) (Seq<? extends Attribute>) rowEncoder.schema().toAttributes();
+    ExpressionEncoder<Row> rowEncoder =
+        ExpressionEncoder$.MODULE$.apply(RowEncoder.encoderFor(schema));
+
+    Seq<Attribute> attributeSeq = (Seq<Attribute>) (Seq<? extends Attribute>)
+        org.apache.spark.sql.catalyst.types.DataTypeUtils.toAttributes(rowEncoder.schema());
     this.deserializer =
         rowEncoder.resolveAndBind(attributeSeq, SimpleAnalyzer$.MODULE$).createDeserializer();
   }

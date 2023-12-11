@@ -30,10 +30,12 @@ import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.PartitionReader;
 import org.bson.BsonDocument;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -159,13 +161,38 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
    */
   private MongoChangeStreamCursor<BsonDocument> getCursor() {
     if (changeStreamCursor == null) {
+
       List<BsonDocument> pipeline = new ArrayList<>();
-      pipeline.add(Aggregates.match(Filters.lt("clusterTime", partition.getEndOffsetTimestamp()))
-          .toBsonDocument());
-      if (readConfig.streamPublishFullDocumentOnly()) {
-        pipeline.add(Aggregates.match(Filters.exists(FULL_DOCUMENT)).toBsonDocument());
+      List<BsonDocument> currentPipeline = partition.getPipeline();
+      boolean isMatch = false;
+
+      if (!currentPipeline.isEmpty()) {
+        if (currentPipeline.get(0).containsKey("$match")) {
+          BsonDocument document = currentPipeline.get(0).get("$match").asDocument();
+          List<Bson> filters = new ArrayList<>();
+          filters.add(Filters.lt("clusterTime", partition.getEndOffsetTimestamp()));
+          filters.add(document);
+          if (readConfig.streamPublishFullDocumentOnly()) {
+            filters.add(Filters.exists(FULL_DOCUMENT));
+          }
+
+          currentPipeline.set(0, Aggregates.match(Filters.and(filters)).toBsonDocument());
+          isMatch = true;
+        }
       }
-      pipeline.addAll(partition.getPipeline());
+      if (!isMatch) {
+        pipeline.add(Aggregates.match(Filters.lt("clusterTime", partition.getEndOffsetTimestamp()))
+            .toBsonDocument());
+        if (readConfig.streamPublishFullDocumentOnly()) {
+          pipeline.add(Aggregates.match(Filters.exists(FULL_DOCUMENT)).toBsonDocument());
+        }
+      }
+      pipeline.addAll(currentPipeline);
+
+      String pipelineString =
+          pipeline.stream().map(p -> p.toJson()).collect(Collectors.joining(","));
+      LOGGER.info("pipeline: {}", pipelineString);
+
       ChangeStreamIterable<Document> changeStreamIterable = mongoClient
           .getDatabase(readConfig.getDatabaseName())
           .getCollection(readConfig.getCollectionName())

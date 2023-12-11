@@ -27,11 +27,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.mongodb.WriteConcern;
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.changestream.FullDocument;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.bson.BsonDocument;
+import org.bson.conversions.Bson;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -269,6 +276,43 @@ public class MongoConfigTest {
     assertThrows(ConfigException.class, () -> mongoConfig.getInt("string", 1));
     assertThrows(ConfigException.class, () -> mongoConfig.getLong("string", 1L));
     assertThrows(ConfigException.class, () -> mongoConfig.getDouble("string", 1.0));
+  }
+
+  @Test
+  void testMerge() {
+    List<BsonDocument> pipeline = new ArrayList<>();
+    List<BsonDocument> currentPipeline = new ArrayList<>();
+    currentPipeline.add(BsonDocument.parse("{\n" + "    \"$match\": {\n"
+        + "      \"operationType\": { \"$in\": [\"insert\", \"update\", \"replace\"] }\n"
+        + "    }\n"
+        + "  }"));
+
+    currentPipeline.add(BsonDocument.parse(
+        "{ \"$project\": { \"_id\": 1, \"fullDocument\": 1, \"ns\": 1, \"documentKey\": 1 } }"));
+
+    boolean isMatch = false;
+
+    if (!currentPipeline.isEmpty()) {
+      if (currentPipeline.get(0).containsKey("$match")) {
+        BsonDocument document = currentPipeline.get(0).get("$match").asDocument();
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.lt("clusterTime", "123"));
+        filters.add(document);
+        if (true) {
+          filters.add(Filters.exists("fullDocument"));
+        }
+        currentPipeline.set(0, Aggregates.match(Filters.and(filters)).toBsonDocument());
+        isMatch = true;
+      }
+    }
+    if (!isMatch) {
+      pipeline.add(Aggregates.match(Filters.lt("clusterTime", "123")).toBsonDocument());
+    }
+
+    pipeline.addAll(currentPipeline);
+
+    String pipelineString = pipeline.stream().map(p -> p.toJson()).collect(Collectors.joining(","));
+    System.out.println("pipeline: " + pipelineString);
   }
 
   private static Stream<MongoConfig> optionsMapConfigs() {

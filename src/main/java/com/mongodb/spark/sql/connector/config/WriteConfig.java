@@ -238,7 +238,7 @@ public final class WriteConfig extends AbstractMongoConfig {
    *
    * @param options the options for configuration
    */
-  WriteConfig(final Map<String, String> options) {
+  public WriteConfig(final Map<String, String> options) {
     super(options, UsageMode.WRITE);
     writeConcern = createWriteConcern();
     operationType =

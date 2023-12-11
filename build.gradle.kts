@@ -27,7 +27,6 @@ plugins {
     idea
     `java-library`
     `maven-publish`
-    signing
     checkstyle
     id("com.github.gmazzo.buildconfig") version "3.0.2"
     id("com.github.spotbugs") version "4.7.9"
@@ -35,7 +34,7 @@ plugins {
     id("com.github.johnrengelman.shadow") version "7.0.0"
 }
 
-version = "10.3.0-SNAPSHOT"
+version = "10.3.2-commure"
 group = "org.mongodb.spark"
 
 description = "The official MongoDB Apache Spark Connect Connector."
@@ -50,8 +49,8 @@ repositories {
 }
 
 // Usage: ./gradlew -DscalaVersion=2.12 -DsparkVersion=3.1.2
-val scalaVersion = System.getProperty("scalaVersion", "2.13")
-val sparkVersion = System.getProperty("sparkVersion", "3.2.2")
+val scalaVersion = System.getProperty("scalaVersion", "2.12")
+val sparkVersion = System.getProperty("sparkVersion", "3.5.0")
 
 extra.apply {
     set("annotationsVersion", "22.0.0")
@@ -332,13 +331,6 @@ publishing {
             }
         }
     }
-}
-
-signing {
-    val signingKey: String? by project
-    val signingPassword: String? by project
-    useInMemoryPgpKeys(signingKey, signingPassword)
-    sign(publishing.publications["mavenJava"])
 }
 
 tasks.javadoc {
