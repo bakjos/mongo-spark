@@ -41,6 +41,7 @@ public class TestCosmosDb {
         .load()
         .writeStream()
         .trigger(Trigger.Continuous(1, TimeUnit.SECONDS))
+        .option("checkpointLocation", "/Users/giovannygutierrez/tmp/mongo-spark/checkpoints")
         .foreach(new ForeachWriter<Row>() {
           @Override
           public void process(final Row value) {

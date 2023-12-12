@@ -39,6 +39,6 @@ final class ResumeTokenBasedOffset extends MongoOffset {
   @Override
   <T> ChangeStreamIterable<T> applyToChangeStreamIterable(
       final ChangeStreamIterable<T> changeStreamIterable) {
-    return changeStreamIterable.startAfter(resumeToken);
+    return changeStreamIterable.resumeAfter(resumeToken);
   }
 }
